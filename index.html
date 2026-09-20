@@ -246,6 +246,7 @@ function newProduct() {
     mhd: "",
     oeffnungsdatum: "",
     category: "kuehlschrank",
+    nameCommitted: false,
   };
 }
 
@@ -290,6 +291,7 @@ function FridgeApp() {
         setProducts(
           parsed.map((item) => ({
             category: "kuehlschrank",
+            nameCommitted: !!(item.name && item.name.trim()),
             ...item,
           }))
         );
@@ -395,7 +397,10 @@ function FridgeApp() {
   const addToFridgeList = async (id, name) => {
     const trimmed = (name || "").trim();
     if (!trimmed) return;
-    const nextProducts = [...products, { ...newProduct(), name: trimmed }];
+    const nextProducts = [
+      ...products,
+      { ...newProduct(), name: trimmed, nameCommitted: true },
+    ];
     setProducts(nextProducts);
     try {
       await storage.set(
@@ -492,7 +497,7 @@ function FridgeView({
   });
 
   const isUrgent = (p) => urgencyColor(p.oeffnungsdatum).color === "var(--dot-red)";
-  const isNewEntry = (p) => !p.name.trim();
+  const isNewEntry = (p) => !p.nameCommitted;
 
   const newEntries = products.filter(isNewEntry);
   const primaryProducts = sortByUrgency(
@@ -651,8 +656,20 @@ function CategorizedList({ products, onChange, onRemove, onSave }) {
 function ProductRow({ product, onChange, onRemove, onSave }) {
   const { color, label } = urgencyColor(product.oeffnungsdatum);
 
+  const handleRowBlur = (e) => {
+    // Nur reagieren, wenn der Fokus den gesamten Produktblock verlässt
+    // (nicht bei einem Wechsel zwischen Feldern innerhalb derselben Zeile).
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+
+    if (!product.nameCommitted && product.name.trim()) {
+      onChange("nameCommitted", true, true);
+    } else {
+      onSave && onSave();
+    }
+  };
+
   return (
-    <li style={styles.row}>
+    <li style={styles.row} onBlur={handleRowBlur}>
       <div style={styles.rowTop}>
         <span
           title={label}
@@ -665,7 +682,6 @@ function ProductRow({ product, onChange, onRemove, onSave }) {
           placeholder="Produktname"
           value={product.name}
           onChange={(e) => onChange("name", e.target.value)}
-          onBlur={onSave}
         />
         <CategoryDropdown
           value={product.category}
@@ -686,19 +702,16 @@ function ProductRow({ product, onChange, onRemove, onSave }) {
           label="Kaufdatum"
           value={product.kaufdatum}
           onChange={(v) => onChange("kaufdatum", v)}
-          onBlur={onSave}
         />
         <Field
           label="MHD"
           value={product.mhd}
           onChange={(v) => onChange("mhd", v)}
-          onBlur={onSave}
         />
         <Field
           label="Geöffnet am"
           value={product.oeffnungsdatum}
           onChange={(v) => onChange("oeffnungsdatum", v)}
-          onBlur={onSave}
         />
       </div>
     </li>
