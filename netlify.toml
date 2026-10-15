@@ -1,0 +1,5 @@
+# Food Controll is a static site (index.html loads React directly in the browser),
+# so no build step is needed. These settings override the build settings in the Netlify UI.
+[build]
+  command = "echo 'Static site - no build step required'"
+  publish = "."
