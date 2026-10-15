@@ -1,0 +1,18 @@
+# Die App ist eine einzelne statische index.html – kein Build-Schritt nötig.
+# Diese Datei überschreibt die Einstellungen in der Netlify-Oberfläche
+# (dort stehen "Jekyll-Build" und der Ordner "Public", die es nicht gibt),
+# damit jede Änderung auf GitHub automatisch veröffentlicht wird.
+[build]
+  command = "echo 'Kein Build nötig – statische Seite'"
+  publish = "."
+
+# index.html immer frisch laden, damit Updates sofort sichtbar sind
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
