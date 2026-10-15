@@ -23,15 +23,8 @@
   />
 
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-      background: #F4EFE2;
-    }
-    #root {
-      min-height: 100vh;
-    }
+    html, body { margin: 0; padding: 0; min-height: 100%; background: #F4EFE2; }
+    #root { min-height: 100vh; }
   </style>
 
   <!-- React 18 (UMD) -->
@@ -62,134 +55,86 @@ const storage = {
 };
 
 /* ---------- Icons (einfache SVGs als Ersatz für lucide-react) ---------- */
-
 function Icon({ children, size = 20, strokeWidth = 2, color = "currentColor", style }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={style}
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+      strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style}>
       {children}
     </svg>
   );
 }
-
-function Plus(p) {
-  return (
-    <Icon {...p}>
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </Icon>
-  );
-}
-
-function Trash2(p) {
-  return (
-    <Icon {...p}>
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </Icon>
-  );
-}
-
-function ArrowRight(p) {
-  return (
-    <Icon {...p}>
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
-    </Icon>
-  );
-}
-
-function ArrowLeft(p) {
-  return (
-    <Icon {...p}>
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
-    </Icon>
-  );
-}
-
-function Check(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="20 6 9 17 4 12" />
-    </Icon>
-  );
-}
-
-function ChevronDown(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="6 9 12 15 18 9" />
-    </Icon>
-  );
-}
-
-function Printer(p) {
-  return (
-    <Icon {...p}>
-      <polyline points="6 9 6 2 18 2 18 9" />
-      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-      <rect x="6" y="14" width="12" height="8" />
-    </Icon>
-  );
-}
-
-function Share2(p) {
-  return (
-    <Icon {...p}>
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </Icon>
-  );
-}
-
-function ListPlus(p) {
-  return (
-    <Icon {...p}>
-      <line x1="8" y1="6" x2="21" y2="6" />
-      <line x1="8" y1="12" x2="21" y2="12" />
-      <line x1="8" y1="18" x2="15" y2="18" />
-      <line x1="3" y1="6" x2="3.01" y2="6" />
-      <line x1="3" y1="12" x2="3.01" y2="12" />
-      <line x1="17" y1="17" x2="17" y2="21" />
-      <line x1="15" y1="19" x2="19" y2="19" />
-    </Icon>
-  );
-}
-
-function NotebookPen(p) {
-  return (
-    <Icon {...p}>
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </Icon>
-  );
-}
+function Plus(p) { return (<Icon {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>); }
+function Trash2(p) { return (<Icon {...p}><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></Icon>); }
+function ArrowRight(p) { return (<Icon {...p}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></Icon>); }
+function ArrowLeft(p) { return (<Icon {...p}><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></Icon>); }
+function Check(p) { return (<Icon {...p}><polyline points="20 6 9 17 4 12" /></Icon>); }
+function ChevronDown(p) { return (<Icon {...p}><polyline points="6 9 12 15 18 9" /></Icon>); }
+function Printer(p) { return (<Icon {...p}><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></Icon>); }
+function Share2(p) { return (<Icon {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></Icon>); }
+function ListPlus(p) { return (<Icon {...p}><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="15" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="17" y1="17" x2="17" y2="21" /><line x1="15" y1="19" x2="19" y2="19" /></Icon>); }
+function NotebookPen(p) { return (<Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>); }
 
 /* ---------- Kategorien ---------- */
 
 const CATEGORY_OPTIONS = [
-  { value: "kuehlschrank", icon: "❄️", text: "Kühlschrank" },
-  { value: "obst_gemuese", icon: "🍎", text: "Obst & Gemüse" },
-  { value: "schokolade_snacks", icon: "🍫", text: "Schokolade & Snacks" },
-  { value: "teigwaren_sonstiges", icon: "🥫", text: "Teigwaren & sonstiges" },
-  { value: "hygiene_putzmittel", icon: "🧻", text: "Hygiene- & Putzmittel" },
-  { value: "tiere", icon: "🐶", text: "Tiere" },
+  {
+    value: "kuehlschrank",
+    icon: "❄️",
+    icons: ["🥓", "🍔", "🧀", "🥚", "🥛"],
+    text: "Kühlschrank",
+  },
+  {
+    value: "gefrierfach",
+    icon: "🧊",
+    icons: ["🧊", "🐟", "🥖", "🥩"],
+    text: "Gefrierfach",
+  },
+  {
+    value: "obst_gemuese",
+    icon: "🍎",
+    icons: [
+      "🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍒",
+      "🍍", "🥥", "🥝", "🍅", "🥑", "🥦", "🥬", "🥒",
+      "🫑", "🥕", "🧄", "🧅", "🥔",
+    ],
+    text: "Obst & Gemüse",
+  },
+  {
+    value: "schokolade_snacks",
+    icon: "🍫",
+    icons: ["🍫", "🍬", "🍪"],
+    text: "Schokolade & Snacks",
+  },
+  {
+    value: "teigwaren_sonstiges",
+    icon: "🫙",
+    icons: ["🥫", "🧂", "🥛", "🍝", "🍚", "🧃"],
+    text: "Storage",
+  },
+  {
+    value: "hygiene_putzmittel",
+    icon: "🧼",
+    icons: ["🧻", "🧴", "🧽", "🪣", "🧺"],
+    text: "Hygiene- & Putzmittel",
+  },
+  {
+    value: "tiere",
+    icon: "🐾",
+    icons: ["🐾", "🐶", "🐱"],
+    text: "Tiere",
+  },
+  {
+    value: "getraenke",
+    icon: "💧",
+    icons: ["💧", "🥛", "🥤"],
+    text: "Getränke",
+  },
+  {
+    value: "brot_backwaren",
+    icon: "🍞",
+    icons: ["🍞", "🥖", "🥐", "🥨"],
+    text: "Brot & Backwaren",
+  },
 ];
 
 const OTHER_CATEGORIES = CATEGORY_OPTIONS.filter(
@@ -208,10 +153,21 @@ function daysSince(dateStr) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function isMhdExpired(mhd) {
+  if (!mhd) return false;
+  const mhdDate = new Date(mhd + "T00:00:00");
+  const today = new Date(todayISO() + "T00:00:00");
+  return today > mhdDate;
+}
+
+// rot: MHD bereits überschritten (unabhängig vom Öffnungsdatum)
 // grün: leer oder < 14 Tage seit Öffnung
 // gelb: 14–20 Tage seit Öffnung
 // rot: ab 21 Tage seit Öffnung
-function urgencyColor(oeffnungsdatum) {
+function urgencyColor(oeffnungsdatum, mhd) {
+  if (isMhdExpired(mhd)) {
+    return { color: "var(--dot-red)", label: "MHD überschritten!" };
+  }
   const d = daysSince(oeffnungsdatum);
   if (d === null || d < 14) return { color: "var(--dot-green)", label: "frisch" };
   if (d < 21) return { color: "var(--dot-yellow)", label: "bald verbrauchen" };
@@ -219,8 +175,8 @@ function urgencyColor(oeffnungsdatum) {
 }
 
 // Sortierrang: rot (0) vor gelb (1) vor grün (2)
-function urgencyRank(oeffnungsdatum) {
-  const { color } = urgencyColor(oeffnungsdatum);
+function urgencyRank(oeffnungsdatum, mhd) {
+  const { color } = urgencyColor(oeffnungsdatum, mhd);
   if (color === "var(--dot-red)") return 0;
   if (color === "var(--dot-yellow)") return 1;
   return 2;
@@ -228,7 +184,9 @@ function urgencyRank(oeffnungsdatum) {
 
 function sortByUrgency(items) {
   return [...items].sort(
-    (a, b) => urgencyRank(a.oeffnungsdatum) - urgencyRank(b.oeffnungsdatum)
+    (a, b) =>
+      urgencyRank(a.oeffnungsdatum, a.mhd) -
+      urgencyRank(b.oeffnungsdatum, b.mhd)
   );
 }
 
@@ -246,6 +204,7 @@ function newProduct() {
     mhd: "",
     oeffnungsdatum: "",
     category: "kuehlschrank",
+    icon: "",
     nameCommitted: false,
   };
 }
@@ -291,6 +250,7 @@ function FridgeApp() {
         setProducts(
           parsed.map((item) => ({
             category: "kuehlschrank",
+            icon: "",
             nameCommitted: !!(item.name && item.name.trim()),
             ...item,
           }))
@@ -496,7 +456,8 @@ function FridgeView({
     year: "numeric",
   });
 
-  const isUrgent = (p) => urgencyColor(p.oeffnungsdatum).color === "var(--dot-red)";
+  const isUrgent = (p) =>
+    urgencyColor(p.oeffnungsdatum, p.mhd).color === "var(--dot-red)";
   const isNewEntry = (p) => !p.nameCommitted;
 
   const newEntries = products.filter(isNewEntry);
@@ -587,10 +548,9 @@ function FridgeView({
       )}
 
       {primaryProducts.length > 0 && (
-        <>
-          <h3 style={styles.categoryGroupTitle}>
-            {CATEGORY_OPTIONS[0].icon} {CATEGORY_OPTIONS[0].text}
-          </h3>
+        <CollapsibleCategory
+          title={`${CATEGORY_OPTIONS[0].icon} ${CATEGORY_OPTIONS[0].text}`}
+        >
           <ul style={styles.list}>
             {primaryProducts.map((p) => (
               <ProductRow
@@ -604,7 +564,7 @@ function FridgeView({
               />
             ))}
           </ul>
-        </>
+        </CollapsibleCategory>
       )}
 
       <CategorizedList
@@ -631,30 +591,56 @@ function CategorizedList({ products, onChange, onRemove, onSave }) {
     <>
       {groups.map((g) => (
         <div key={g.value} style={styles.categoryGroup}>
-          <h3 style={styles.categoryGroupTitle}>
-            {g.icon} {g.text}
-          </h3>
-          <ul style={styles.list}>
-            {g.items.map((p) => (
-              <ProductRow
-                key={p.id}
-                product={p}
-                onChange={(field, value, shouldSave) =>
-                  onChange(p.id, field, value, shouldSave)
-                }
-                onRemove={() => onRemove(p.id)}
-                onSave={onSave}
-              />
-            ))}
-          </ul>
+          <CollapsibleCategory title={`${g.icon} ${g.text}`}>
+            <ul style={styles.list}>
+              {g.items.map((p) => (
+                <ProductRow
+                  key={p.id}
+                  product={p}
+                  onChange={(field, value, shouldSave) =>
+                    onChange(p.id, field, value, shouldSave)
+                  }
+                  onRemove={() => onRemove(p.id)}
+                  onSave={onSave}
+                />
+              ))}
+            </ul>
+          </CollapsibleCategory>
         </div>
       ))}
     </>
   );
 }
 
+// Kategorie-Überschrift, die per Klick die Produktliste ein- und ausklappt.
+function CollapsibleCategory({ title, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <>
+      <button
+        type="button"
+        style={styles.categoryToggle}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <ChevronDown
+          size={15}
+          strokeWidth={2.3}
+          style={{
+            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+            transition: "transform 0.15s ease",
+          }}
+        />
+      </button>
+      {open && children}
+    </>
+  );
+}
+
 function ProductRow({ product, onChange, onRemove, onSave }) {
-  const { color, label } = urgencyColor(product.oeffnungsdatum);
+  const { color, label } = urgencyColor(product.oeffnungsdatum, product.mhd);
 
   const handleRowBlur = (e) => {
     // Nur reagieren, wenn der Fokus den gesamten Produktblock verlässt
@@ -685,7 +671,11 @@ function ProductRow({ product, onChange, onRemove, onSave }) {
         />
         <CategoryDropdown
           value={product.category}
-          onChange={(value) => onChange("category", value, true)}
+          iconValue={product.icon}
+          onChange={(categoryValue, emoji) => {
+            onChange("category", categoryValue);
+            onChange("icon", emoji, true);
+          }}
         />
         <button
           style={styles.deleteButton}
@@ -733,12 +723,13 @@ function Field({ label, value, onChange, onBlur }) {
   );
 }
 
-function CategoryDropdown({ value, onChange }) {
+function CategoryDropdown({ value, iconValue, onChange }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const current =
     CATEGORY_OPTIONS.find((o) => o.value === (value || "kuehlschrank")) ||
     CATEGORY_OPTIONS[0];
+  const currentIcon = iconValue || current.icon;
 
   useEffect(() => {
     if (!open) return;
@@ -760,7 +751,7 @@ function CategoryDropdown({ value, onChange }) {
         aria-label={`Kategorie: ${current.text}`}
         aria-expanded={open}
       >
-        <span style={styles.categoryIcon}>{current.icon}</span>
+        <span style={styles.categoryIcon}>{currentIcon}</span>
         <ChevronDown
           size={13}
           strokeWidth={2.3}
@@ -774,11 +765,8 @@ function CategoryDropdown({ value, onChange }) {
       {open && (
         <div style={styles.categoryMenu} role="listbox">
           {CATEGORY_OPTIONS.map((opt, i) => (
-            <button
+            <div
               key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={opt.value === current.value}
               style={{
                 ...styles.categoryMenuItem,
                 ...(i < CATEGORY_OPTIONS.length - 1
@@ -788,14 +776,34 @@ function CategoryDropdown({ value, onChange }) {
                   ? styles.categoryMenuItemActive
                   : {}),
               }}
-              onClick={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
             >
-              <span style={styles.categoryIcon}>{opt.icon}</span>
-              {opt.text}
-            </button>
+              <span style={styles.categoryMenuLabel}>{opt.text}</span>
+              <div style={styles.categoryEmojiRow}>
+                {opt.icons.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    role="option"
+                    aria-selected={
+                      opt.value === current.value && emoji === currentIcon
+                    }
+                    title={opt.text}
+                    style={{
+                      ...styles.categoryEmojiButton,
+                      ...(opt.value === current.value && emoji === currentIcon
+                        ? styles.categoryEmojiButtonActive
+                        : {}),
+                    }}
+                    onClick={() => {
+                      onChange(opt.value, emoji);
+                      setOpen(false);
+                    }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -1456,26 +1464,53 @@ const styles = {
     top: "calc(100% + 5px)",
     right: 0,
     minWidth: 176,
+    maxWidth: 220,
+    maxHeight: 320,
     background: "var(--surface)",
     border: "1px solid var(--border)",
     borderRadius: 10,
     boxShadow: "0 6px 18px rgba(60, 50, 10, 0.12)",
-    overflow: "hidden",
+    overflowY: "auto",
+    overflowX: "hidden",
     zIndex: 20,
   },
   categoryMenuItem: {
     display: "flex",
-    alignItems: "center",
-    gap: 9,
+    flexDirection: "column",
+    gap: 6,
     width: "100%",
-    padding: "10px 13px",
+    padding: "9px 13px",
     background: "transparent",
-    border: "none",
-    textAlign: "left",
     fontSize: 13.5,
     fontFamily: "inherit",
     color: "var(--text-primary)",
+  },
+  categoryMenuLabel: {
+    fontSize: 12.5,
+  },
+  categoryEmojiRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  categoryEmojiButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 30,
+    height: 30,
+    fontSize: 16,
+    lineHeight: 1,
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    background: "#fff",
     cursor: "pointer",
+    padding: 0,
+    flexShrink: 0,
+  },
+  categoryEmojiButtonActive: {
+    borderColor: "var(--accent)",
+    background: "var(--accent-soft)",
   },
   categoryMenuItemActive: {
     background: "var(--accent-soft)",
@@ -1509,6 +1544,22 @@ const styles = {
     flexDirection: "column",
     gap: 8,
     marginTop: 24,
+  },
+  categoryToggle: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    padding: "2px 0",
+    margin: "0 0 2px",
+    background: "transparent",
+    border: "none",
+    fontSize: 12.5,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    color: "var(--text-secondary)",
+    textAlign: "left",
+    cursor: "pointer",
   },
   categoryGroupTitle: {
     fontSize: 12.5,
