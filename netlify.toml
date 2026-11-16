@@ -1,5 +1,6 @@
-# Static site: index.html loads React directly in the browser, so no build step is needed.
-# These settings override the build command / publish directory set in the Netlify UI.
+# Static site: index.html loads React directly in the browser, so no compile step is needed.
+# The build just copies the static files into _site, which matches the publish directory
+# configured in the Netlify UI, so the deploy step always finds an existing folder.
 [build]
-  command = "echo 'No build step required'"
-  publish = "."
+  command = "rm -rf _site && mkdir -p _site && cp index.html manifest.webmanifest _site/ && (cp *.png *.ico *.svg _site/ 2>/dev/null || true)"
+  publish = "_site"
