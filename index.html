@@ -73,6 +73,8 @@ function Printer(p) { return (<Icon {...p}><polyline points="6 9 6 2 18 2 18 9" 
 function Share2(p) { return (<Icon {...p}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></Icon>); }
 function ListPlus(p) { return (<Icon {...p}><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="15" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="17" y1="17" x2="17" y2="21" /><line x1="15" y1="19" x2="19" y2="19" /></Icon>); }
 function NotebookPen(p) { return (<Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>); }
+function Camera(p) { return (<Icon {...p}><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></Icon>); }
+function X(p) { return (<Icon {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>); }
 
 /* ---------- Kategorien ---------- */
 
@@ -194,6 +196,199 @@ function formatDate(d) {
   if (!d) return "";
   const [y, m, day] = d.split("-");
   return `${day}.${m}.${y}`;
+}
+
+/* >>> SCANNER-HELFER START (reiner JS-Code ohne DOM, wird separat getestet) */
+
+// Heutiges Datum in lokaler Zeit als yyyy-mm-dd
+function localTodayISO() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+const SEL_MIN = 0.12; // kleinste erlaubte Kantenlänge der Auswahl (Anteil am Bild)
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// Verschiebt oder vergrößert/verkleinert den Auswahlbereich.
+// Alle Werte sind Anteile (0–1) der Bildbreite bzw. -höhe.
+// mode: "move" oder eine Kante/Ecke: n, s, e, w, ne, nw, se, sw
+function resizeSelection(orig, mode, dx, dy) {
+  let { x, y, w, h } = orig;
+  if (mode === "move") {
+    x = clamp(x + dx, 0, 1 - w);
+    y = clamp(y + dy, 0, 1 - h);
+    return { x, y, w, h };
+  }
+  if (mode.includes("w")) {
+    const nx = clamp(x + dx, 0, x + w - SEL_MIN);
+    w = w + (x - nx);
+    x = nx;
+  }
+  if (mode.includes("e")) {
+    w = clamp(w + dx, SEL_MIN, 1 - x);
+  }
+  if (mode.includes("n")) {
+    const ny = clamp(y + dy, 0, y + h - SEL_MIN);
+    h = h + (y - ny);
+    y = ny;
+  }
+  if (mode.includes("s")) {
+    h = clamp(h + dy, SEL_MIN, 1 - y);
+  }
+  return { x, y, w, h };
+}
+
+// ---- Analyse einzelner Beleg-Zeilen ----
+const RECEIPT_IGNORE_CONTAINS =
+  /(summe|gesamt|total|zwischensumme|mwst|mw\.\s?st|\bust\b|steuer|netto|brutto|gegeben|rückgeld|rueckgeld|zahlung|girocard|kartenzahlung|mastercard|betrag|rabatt|\bpfand\b)/i;
+const RECEIPT_IGNORE_EXACT = /^(bar|ec|ec-karte|karte|visa|eur|euro)$/i;
+const RECEIPT_STOP_WORDS = new Set(["eur", "kg", "stk", "st", "x", "ea", "euro"]);
+// Preis am Zeilenende, z. B. "1,09", "1,09 B", "1,09 EUR", "1,09 *"
+const TRAILING_PRICE = /\s+-?\d{1,4}[.,]\d{2}\s*(?:€|EUR)?(?:\s*[A-E*])?\s*$/;
+const LEADING_JUNK = /^[^A-Za-zÄÖÜäöüß0-9]+/;
+const TRAILING_JUNK = /[^A-Za-zÄÖÜäöüß0-9%).]+$/;
+const WORD_3_LETTERS = /[A-Za-zÄÖÜäöüß]{3,}/;
+
+function capitalizeWord(w) {
+  return w
+    .split("-")
+    .map((p) => (p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : p))
+    .join("-");
+}
+
+// Liefert den bereinigten Produktnamen einer Beleg-Zeile oder "" (keine Produktzeile)
+function cleanReceiptLine(raw) {
+  let s = String(raw || "")
+    .replace(/[|¦_~]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!s) return "";
+
+  // Gewichts-/Kilopreis-Zeilen (z. B. "0,812 kg x 2,29 EUR/kg") sind keine Produkte
+  if (/^[\d.,]+\s*(?:kg|g)\b.*\s[x×]\s/i.test(s) || /\/\s*kg/i.test(s)) return "";
+
+  while (TRAILING_PRICE.test(s)) s = s.replace(TRAILING_PRICE, "");
+  s = s.replace(/^\d+\s*[x×]\s*/i, ""); // Menge am Anfang, z. B. "2 x "
+  s = s.replace(/^\d{4,}\s+/, ""); // Artikelnummer am Anfang
+  s = s.replace(LEADING_JUNK, "").replace(TRAILING_JUNK, "").trim();
+  if (!s) return "";
+
+  if (RECEIPT_IGNORE_CONTAINS.test(s) || RECEIPT_IGNORE_EXACT.test(s)) return "";
+
+  const meaningful = s
+    .split(" ")
+    .filter((w) => WORD_3_LETTERS.test(w) && !RECEIPT_STOP_WORDS.has(w.toLowerCase()));
+  if (meaningful.length === 0) return "";
+
+  // Belege sind oft komplett in Großbuchstaben -> lesbarer machen
+  if (!/[a-zäöüß]/.test(s)) {
+    s = s
+      .split(" ")
+      .map((w) => (/\d/.test(w) ? w : capitalizeWord(w)))
+      .join(" ");
+  }
+  return s;
+}
+
+// Analysiert den erkannten Text Zeile für Zeile und gibt die Produktnamen zurück
+function parseReceiptLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map(cleanReceiptLine)
+    .filter(Boolean);
+}
+
+/* <<< SCANNER-HELFER ENDE */
+
+// Schneidet den gewählten Bereich aus und bereitet ihn für die Texterkennung vor
+// (Größe anpassen, Graustufen, Kontrast strecken).
+function cropAndPrepare(canvas, sel) {
+  const sx = Math.round(sel.x * canvas.width);
+  const sy = Math.round(sel.y * canvas.height);
+  const sw = Math.max(1, Math.round(sel.w * canvas.width));
+  const sh = Math.max(1, Math.round(sel.h * canvas.height));
+
+  let scale = 1;
+  if (sw < 1200) scale = Math.min(3, 1200 / sw);
+  else if (sw > 2000) scale = 2000 / sw;
+
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(sw * scale));
+  out.height = Math.max(1, Math.round(sh * scale));
+  const ctx = out.getContext("2d", { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+
+  const img = ctx.getImageData(0, 0, out.width, out.height);
+  const d = img.data;
+  const hist = new Array(256).fill(0);
+  for (let i = 0; i < d.length; i += 4) {
+    const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    d[i] = d[i + 1] = d[i + 2] = g;
+    hist[g]++;
+  }
+  const total = out.width * out.height;
+  let lo = 0;
+  let hi = 255;
+  let acc = 0;
+  for (let i = 0; i < 256; i++) {
+    acc += hist[i];
+    if (acc >= total * 0.02) {
+      lo = i;
+      break;
+    }
+  }
+  acc = 0;
+  for (let i = 255; i >= 0; i--) {
+    acc += hist[i];
+    if (acc >= total * 0.02) {
+      hi = i;
+      break;
+    }
+  }
+  // Kontrast nur strecken, wenn das Bild überhaupt Kontrast hat
+  // (sonst würde z. B. leeres weißes Papier ins Schwarze kippen)
+  if (hi - lo >= 20) {
+    const range = hi - lo;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = clamp(((d[i] - lo) * 255) / range, 0, 255);
+      d[i] = d[i + 1] = d[i + 2] = v;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+// Texterkennung (Tesseract.js) wird erst beim ersten Scan nachgeladen
+const TESSERACT_SRC =
+  "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+let tesseractPromise = null;
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (!tesseractPromise) {
+    tesseractPromise = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = TESSERACT_SRC;
+      s.async = true;
+      s.onload = () =>
+        window.Tesseract
+          ? resolve(window.Tesseract)
+          : reject(new Error("Die Texterkennung ist nicht verfügbar."));
+      s.onerror = () => {
+        tesseractPromise = null;
+        reject(
+          new Error(
+            "Die Texterkennung konnte nicht geladen werden. Bitte Internetverbindung prüfen."
+          )
+        );
+      };
+      document.head.appendChild(s);
+    });
+  }
+  return tesseractPromise;
 }
 
 function newProduct() {
@@ -354,6 +549,26 @@ function FridgeApp() {
     );
   };
 
+  // Trägt jeden gescannten Produktnamen als eigenes Produkt ein (Kaufdatum = heute)
+  const addScannedProducts = async (names) => {
+    const clean = names.map((n) => (n || "").trim()).filter(Boolean);
+    if (clean.length === 0) return;
+    const today = localTodayISO();
+    const created = clean.map((name) => ({
+      ...newProduct(),
+      name,
+      kaufdatum: today,
+      nameCommitted: true,
+    }));
+    const next = [...products, ...created];
+    setProducts(next);
+    try {
+      await storage.set(STORAGE_KEY_PRODUCTS, JSON.stringify(next));
+    } catch {
+      /* im Hintergrund fehlgeschlagen, Eingabe bleibt sichtbar erhalten */
+    }
+  };
+
   const addToFridgeList = async (id, name) => {
     const trimmed = (name || "").trim();
     if (!trimmed) return;
@@ -415,6 +630,7 @@ function FridgeApp() {
           addProduct={addProduct}
           removeProduct={removeProduct}
           onSave={saveProducts}
+          onAddScanned={addScannedProducts}
           onGoShopping={goToShopping}
         />
       ) : (
@@ -447,8 +663,10 @@ function FridgeView({
   addProduct,
   removeProduct,
   onSave,
+  onAddScanned,
   onGoShopping,
 }) {
+  const [scannerOpen, setScannerOpen] = useState(false);
   const today = new Date();
   const dateLabel = today.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -487,10 +705,36 @@ function FridgeView({
         </button>
       </div>
 
-      <button style={styles.addButton} onClick={addProduct} type="button">
-        <Plus size={17} strokeWidth={2.4} />
-        Produkt hinzufügen
-      </button>
+      <div style={styles.addRow}>
+        <button
+          style={{
+            ...styles.addButton,
+            flex: "1 1 180px",
+            width: "auto",
+            marginBottom: 0,
+          }}
+          onClick={addProduct}
+          type="button"
+        >
+          <Plus size={17} strokeWidth={2.4} />
+          Produkt hinzufügen
+        </button>
+        <button
+          style={styles.scanButton}
+          onClick={() => setScannerOpen(true)}
+          type="button"
+        >
+          <Camera size={17} strokeWidth={2.3} />
+          Beleg scannen
+        </button>
+      </div>
+
+      {scannerOpen && (
+        <ReceiptScannerModal
+          onClose={() => setScannerOpen(false)}
+          onAdd={onAddScanned}
+        />
+      )}
 
       {newEntries.length > 0 && (
         <ul style={styles.list}>
@@ -636,6 +880,519 @@ function CollapsibleCategory({ title, children, defaultOpen = true }) {
       </button>
       {open && children}
     </>
+  );
+}
+
+/* ---------- Beleg-Scanner ---------- */
+
+const SEL_HANDLES = [
+  { mode: "nw", left: "0%", top: "0%", cursor: "nwse-resize" },
+  { mode: "n", left: "50%", top: "0%", cursor: "ns-resize" },
+  { mode: "ne", left: "100%", top: "0%", cursor: "nesw-resize" },
+  { mode: "e", left: "100%", top: "50%", cursor: "ew-resize" },
+  { mode: "se", left: "100%", top: "100%", cursor: "nwse-resize" },
+  { mode: "s", left: "50%", top: "100%", cursor: "ns-resize" },
+  { mode: "sw", left: "0%", top: "100%", cursor: "nesw-resize" },
+  { mode: "w", left: "0%", top: "50%", cursor: "ew-resize" },
+];
+
+// Verschiebbarer und beliebig vergrößerbarer Auswahlrahmen über Kamera-/Foto-Bild.
+// Außerhalb des Rahmens wird das Bild abgedunkelt.
+function SelectionOverlay({ sel, onChange, containerRef }) {
+  const dragRef = useRef(null);
+  const pct = (v) => `${v * 100}%`;
+
+  const startDrag = (mode) => (e) => {
+    const container = containerRef.current;
+    if (!container) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = {
+      mode,
+      startX: e.clientX,
+      startY: e.clientY,
+      orig: { ...sel },
+      rect: container.getBoundingClientRect(),
+    };
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* Pointer-Capture nicht verfügbar */
+    }
+  };
+
+  const handleMove = (e) => {
+    const d = dragRef.current;
+    if (!d || d.rect.width === 0 || d.rect.height === 0) return;
+    onChange(
+      resizeSelection(
+        d.orig,
+        d.mode,
+        (e.clientX - d.startX) / d.rect.width,
+        (e.clientY - d.startY) / d.rect.height
+      )
+    );
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+  };
+
+  const right = sel.x + sel.w;
+  const bottom = sel.y + sel.h;
+
+  return (
+    <>
+      <div style={styles.selDimLayer} aria-hidden="true">
+        <div style={{ ...styles.selDim, left: 0, top: 0, width: "100%", height: pct(sel.y) }} />
+        <div style={{ ...styles.selDim, left: 0, top: pct(bottom), width: "100%", height: pct(1 - bottom) }} />
+        <div style={{ ...styles.selDim, left: 0, top: pct(sel.y), width: pct(sel.x), height: pct(sel.h) }} />
+        <div style={{ ...styles.selDim, left: pct(right), top: pct(sel.y), width: pct(1 - right), height: pct(sel.h) }} />
+      </div>
+      <div
+        data-testid="selection-box"
+        style={{
+          ...styles.selBox,
+          left: pct(sel.x),
+          top: pct(sel.y),
+          width: pct(sel.w),
+          height: pct(sel.h),
+        }}
+        onPointerDown={startDrag("move")}
+        onPointerMove={handleMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
+        {SEL_HANDLES.map((h) => (
+          <div
+            key={h.mode}
+            data-handle={h.mode}
+            onPointerDown={startDrag(h.mode)}
+            style={{ ...styles.selHandle, left: h.left, top: h.top, cursor: h.cursor }}
+          >
+            <span style={styles.selHandleDot} />
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Vollbild-Fenster: Kamera -> Bereich wählen -> Analyse -> Produkte prüfen -> eintragen
+function ReceiptScannerModal({ onClose, onAdd }) {
+  const [phase, setPhase] = useState("camera"); // camera | review | analyzing | results
+  const [cameraError, setCameraError] = useState("");
+  const [videoSize, setVideoSize] = useState(null);
+  const [frame, setFrame] = useState(null); // { url, w, h } des aufgenommenen Fotos
+  const [sel, setSel] = useState({ x: 0.06, y: 0.2, w: 0.88, h: 0.55 });
+  const [progress, setProgress] = useState({ label: "", value: 0 });
+  const [items, setItems] = useState([]);
+  const [rawText, setRawText] = useState("");
+  const [error, setError] = useState("");
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const containerRef = useRef(null);
+  const frameCanvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const runIdRef = useRef(0);
+
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  };
+
+  // Beim Schließen: laufende Analyse verwerfen und Kamera freigeben
+  useEffect(() => {
+    return () => {
+      runIdRef.current++;
+      stopStream();
+    };
+  }, []);
+
+  // Kamera des Geräts starten, solange die Kameraansicht aktiv ist
+  useEffect(() => {
+    if (phase !== "camera") return undefined;
+    let cancelled = false;
+    setCameraError("");
+    setVideoSize(null);
+
+    (async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraError(
+          "Die Kamera steht in diesem Browser nicht zur Verfügung (sie wird nur über eine sichere https-Adresse freigegeben). Du kannst stattdessen ein Foto aufnehmen oder auswählen."
+        );
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        const v = videoRef.current;
+        if (v) {
+          v.srcObject = stream;
+          try {
+            await v.play();
+          } catch {
+            /* Wiedergabe wird ggf. vom Browser verzögert gestartet */
+          }
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setCameraError(
+          err && err.name === "NotAllowedError"
+            ? "Der Zugriff auf die Kamera wurde nicht erlaubt. Bitte erlaube die Kamera in den Browser-Einstellungen oder wähle ein Foto aus."
+            : "Die Kamera konnte nicht gestartet werden. Du kannst stattdessen ein Foto aufnehmen oder auswählen."
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      stopStream();
+    };
+  }, [phase]);
+
+  const setFrameFromCanvas = (canvas) => {
+    frameCanvasRef.current = canvas;
+    setFrame({
+      url: canvas.toDataURL("image/jpeg", 0.92),
+      w: canvas.width,
+      h: canvas.height,
+    });
+    setError("");
+    setPhase("review");
+  };
+
+  // Standbild aus der Live-Kamera aufnehmen (volle Auflösung)
+  const capture = () => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = v.videoWidth;
+    canvas.height = v.videoHeight;
+    canvas.getContext("2d").drawImage(v, 0, 0);
+    setFrameFromCanvas(canvas);
+  };
+
+  // Alternative: Foto über die Kamera-App oder die Galerie wählen
+  const handleFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      setFrameFromCanvas(canvas);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setError("Das Bild konnte nicht gelesen werden.");
+    };
+    img.src = url;
+  };
+
+  // Nur den gewählten Bereich analysieren
+  const analyze = async () => {
+    const canvas = frameCanvasRef.current;
+    if (!canvas) return;
+    const runId = ++runIdRef.current;
+    setError("");
+    setProgress({ label: "Texterkennung wird vorbereitet …", value: 0 });
+    setPhase("analyzing");
+    let worker = null;
+    try {
+      const Tesseract = await loadTesseract();
+      if (runId !== runIdRef.current) return;
+      const prepared = cropAndPrepare(canvas, sel);
+      worker = await Tesseract.createWorker("deu", 1, {
+        logger: (m) => {
+          if (runId !== runIdRef.current) return;
+          if (m.status === "recognizing text") {
+            setProgress({ label: "Text wird erkannt …", value: m.progress || 0 });
+          } else {
+            setProgress((p) => ({ label: "Texterkennung wird vorbereitet …", value: p.value }));
+          }
+        },
+      });
+      await worker.setParameters({
+        tessedit_pageseg_mode: "6",
+        preserve_interword_spaces: "1",
+      });
+      const { data } = await worker.recognize(prepared);
+      if (runId !== runIdRef.current) return;
+      const text = (data && data.text) || "";
+      setRawText(text);
+      setItems(
+        parseReceiptLines(text).map((t, i) => ({ id: i, text: t, selected: true }))
+      );
+      setPhase("results");
+    } catch (err) {
+      if (runId !== runIdRef.current) return;
+      setError(
+        err && err.message
+          ? `Die Analyse ist fehlgeschlagen: ${err.message}`
+          : "Die Analyse ist fehlgeschlagen."
+      );
+      setPhase("review");
+    } finally {
+      if (worker) {
+        try {
+          await worker.terminate();
+        } catch {
+          /* Worker wurde bereits beendet */
+        }
+      }
+    }
+  };
+
+  const cancelAnalysis = () => {
+    runIdRef.current++;
+    setPhase("review");
+  };
+
+  const toggleItem = (id) =>
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, selected: !it.selected } : it))
+    );
+  const editItem = (id, text) =>
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, text } : it)));
+
+  const chosen = items.filter((it) => it.selected && it.text.trim());
+  const confirmAdd = () => {
+    if (chosen.length === 0) return;
+    onAdd(chosen.map((it) => it.text.trim()));
+    onClose();
+  };
+
+  const size = phase === "camera" ? videoSize : frame ? { w: frame.w, h: frame.h } : null;
+  const ratio = size ? size.w / size.h : 3 / 4;
+  const showFrame = (phase === "camera" && !cameraError) || phase === "review";
+  const titles = {
+    camera: "Beleg fotografieren",
+    review: "Bereich auswählen",
+    analyzing: "Beleg wird analysiert",
+    results: "Erkannte Produkte",
+  };
+
+  return (
+    <div style={styles.scanOverlay} role="dialog" aria-modal="true" aria-label="Beleg scannen">
+      <div style={styles.scanPanel}>
+        <div style={styles.scanHeader}>
+          <h2 style={styles.scanTitle}>{titles[phase]}</h2>
+          <button type="button" style={styles.scanClose} onClick={onClose} aria-label="Schließen">
+            <X size={18} strokeWidth={2.3} />
+          </button>
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          style={{ display: "none" }}
+          data-testid="receipt-file-input"
+        />
+
+        {(phase === "camera" || phase === "review") && (
+          <>
+            {phase === "camera" && cameraError && (
+              <div style={styles.scanNotice}>{cameraError}</div>
+            )}
+
+            {showFrame && (
+              <div
+                ref={containerRef}
+                style={{
+                  ...styles.scanFrame,
+                  aspectRatio: `${ratio}`,
+                  maxWidth: `calc(60vh * ${ratio})`,
+                }}
+              >
+                <div style={styles.scanMedia}>
+                  {phase === "camera" ? (
+                    <video
+                      ref={videoRef}
+                      playsInline
+                      muted
+                      autoPlay
+                      style={styles.scanVideo}
+                      onLoadedMetadata={(e) =>
+                        setVideoSize({
+                          w: e.target.videoWidth,
+                          h: e.target.videoHeight,
+                        })
+                      }
+                    />
+                  ) : (
+                    <img
+                      src={frame.url}
+                      alt="Aufgenommener Beleg"
+                      draggable={false}
+                      style={styles.scanVideo}
+                    />
+                  )}
+                  {phase === "camera" && !videoSize && (
+                    <div style={styles.scanLoading}>Kamera wird gestartet …</div>
+                  )}
+                </div>
+                <SelectionOverlay sel={sel} onChange={setSel} containerRef={containerRef} />
+              </div>
+            )}
+
+            <p style={styles.scanHint}>
+              {phase === "camera"
+                ? "Richte die Kamera auf den Beleg und ziehe den Rahmen über die Produktzeilen. Mit den Punkten an Ecken und Kanten kannst du den Bereich beliebig vergrößern oder verkleinern. Nur dieser Bereich wird analysiert."
+                : "Passe den Rahmen bei Bedarf noch an. Nur der Bereich im Rahmen wird analysiert."}
+            </p>
+
+            {error && <div style={styles.scanError}>{error}</div>}
+
+            <div style={styles.scanButtonRow}>
+              {phase === "camera" && !cameraError && (
+                <button
+                  type="button"
+                  style={{ ...styles.scanPrimary, ...(videoSize ? {} : styles.scanDisabled) }}
+                  onClick={capture}
+                  disabled={!videoSize}
+                >
+                  <Camera size={17} strokeWidth={2.3} />
+                  Foto aufnehmen
+                </button>
+              )}
+              {phase === "review" && (
+                <button type="button" style={styles.scanPrimary} onClick={analyze}>
+                  Auswahl analysieren
+                </button>
+              )}
+              {phase === "review" && (
+                <button type="button" style={styles.scanSecondary} onClick={() => setPhase("camera")}>
+                  Neu aufnehmen
+                </button>
+              )}
+              <button
+                type="button"
+                style={
+                  phase === "camera" && cameraError ? styles.scanPrimary : styles.scanSecondary
+                }
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+              >
+                Foto wählen
+              </button>
+              {showFrame && (
+                <button
+                  type="button"
+                  style={styles.scanSecondary}
+                  onClick={() => setSel({ x: 0, y: 0, w: 1, h: 1 })}
+                >
+                  Ganzes Bild
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {phase === "analyzing" && (
+          <div style={styles.scanProgressBox}>
+            <p style={styles.scanProgressLabel}>
+              {progress.label}
+              {progress.value > 0 ? ` ${Math.round(progress.value * 100)} %` : ""}
+            </p>
+            <div style={styles.scanProgressTrack}>
+              <div
+                style={{
+                  ...styles.scanProgressBar,
+                  width: `${Math.round(progress.value * 100)}%`,
+                }}
+              />
+            </div>
+            <p style={styles.scanHint}>
+              Beim ersten Mal wird die Texterkennung einmalig nachgeladen. Das kann einen Moment dauern.
+            </p>
+            <button type="button" style={styles.scanSecondary} onClick={cancelAnalysis}>
+              Abbrechen
+            </button>
+          </div>
+        )}
+
+        {phase === "results" && (
+          <>
+            <p style={styles.scanHint}>
+              {items.length > 0
+                ? "Jede erkannte Zeile wird als eigenes Produkt eingetragen. Entferne den Haken bei Zeilen, die nicht übernommen werden sollen, und korrigiere Namen bei Bedarf."
+                : "Es wurden keine Produktzeilen erkannt. Wähle den Bereich genauer oder fotografiere den Beleg näher und gerade von oben."}
+            </p>
+
+            {items.length > 0 && (
+              <ul style={styles.scanItemList}>
+                {items.map((it) => (
+                  <li key={it.id} style={styles.scanItem}>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.checkbox,
+                        ...(it.selected ? styles.checkboxChecked : {}),
+                      }}
+                      onClick={() => toggleItem(it.id)}
+                      aria-label={it.selected ? "Nicht übernehmen" : "Übernehmen"}
+                    >
+                      {it.selected && <Check size={13} strokeWidth={3} color="#fff" />}
+                    </button>
+                    <input
+                      style={styles.scanItemInput}
+                      value={it.text}
+                      onChange={(e) => editItem(it.id, e.target.value)}
+                      aria-label="Produktname"
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {items.length === 0 && rawText.trim() && (
+              <details>
+                <summary style={styles.scanHint}>Erkannten Rohtext anzeigen</summary>
+                <pre style={styles.scanRaw}>{rawText}</pre>
+              </details>
+            )}
+
+            <div style={styles.scanButtonRow}>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  style={{ ...styles.scanPrimary, ...(chosen.length ? {} : styles.scanDisabled) }}
+                  onClick={confirmAdd}
+                  disabled={chosen.length === 0}
+                >
+                  {chosen.length} {chosen.length === 1 ? "Produkt" : "Produkte"} hinzufügen
+                </button>
+              )}
+              <button type="button" style={styles.scanSecondary} onClick={() => setPhase("review")}>
+                Zurück zur Auswahl
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -1146,6 +1903,10 @@ function FontStyles() {
       input[type="date"]::-webkit-calendar-picker-indicator {
         opacity: 0.55;
         cursor: pointer;
+        width: 14px;
+        height: 14px;
+        margin: 0 0 0 2px;
+        padding: 0;
       }
 
       input:focus-visible, button:focus-visible {
@@ -1294,6 +2055,266 @@ const styles = {
     marginTop: 4,
     whiteSpace: "nowrap",
   },
+  addRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 18,
+  },
+  scanButton: {
+    flex: "1 1 140px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "12px 14px",
+    background: "var(--accent)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 12,
+    fontSize: 14.5,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
+  scanOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 60,
+    background: "var(--bg)",
+    overflowY: "auto",
+  },
+  scanPanel: {
+    maxWidth: 480,
+    margin: "0 auto",
+    padding: "16px 16px 32px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    fontFamily: "'Inter', system-ui, sans-serif",
+    color: "var(--text-primary)",
+  },
+  scanHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  scanTitle: {
+    fontFamily: "'Fraunces', Georgia, serif",
+    fontSize: 22,
+    fontWeight: 600,
+    margin: 0,
+  },
+  scanClose: {
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--text-primary)",
+    cursor: "pointer",
+  },
+  scanFrame: {
+    position: "relative",
+    width: "100%",
+    margin: "0 auto",
+  },
+  scanMedia: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: "hidden",
+    borderRadius: 12,
+    background: "#111",
+  },
+  scanVideo: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+    userSelect: "none",
+  },
+  scanLoading: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+    fontSize: 13,
+  },
+  selDimLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: "hidden",
+    borderRadius: 12,
+    pointerEvents: "none",
+  },
+  selDim: {
+    position: "absolute",
+    background: "rgba(0, 0, 0, 0.55)",
+  },
+  selBox: {
+    position: "absolute",
+    border: "2px solid #fff",
+    boxSizing: "border-box",
+    boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.35)",
+    cursor: "move",
+    touchAction: "none",
+  },
+  selHandle: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    marginLeft: -18,
+    marginTop: -18,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    touchAction: "none",
+  },
+  selHandleDot: {
+    width: 16,
+    height: 16,
+    borderRadius: "50%",
+    background: "#fff",
+    border: "2px solid var(--accent)",
+    boxSizing: "border-box",
+  },
+  scanHint: {
+    margin: 0,
+    fontSize: 13,
+    lineHeight: 1.45,
+    color: "var(--text-secondary)",
+  },
+  scanNotice: {
+    padding: "14px 16px",
+    background: "var(--surface)",
+    border: "1px dashed var(--border)",
+    borderRadius: 12,
+    fontSize: 14,
+    lineHeight: 1.45,
+  },
+  scanError: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    background: "#FBE9E5",
+    color: "#9B2F1B",
+    fontSize: 13,
+    lineHeight: 1.4,
+  },
+  scanButtonRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  scanPrimary: {
+    flex: "1 1 160px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "12px 16px",
+    background: "var(--accent)",
+    color: "#fff",
+    border: "none",
+    borderRadius: 12,
+    fontSize: 14.5,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
+  scanSecondary: {
+    flex: "1 1 110px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    padding: "12px 14px",
+    background: "var(--surface)",
+    color: "var(--accent)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    fontSize: 14,
+    fontWeight: 600,
+    fontFamily: "inherit",
+    cursor: "pointer",
+  },
+  scanDisabled: {
+    opacity: 0.5,
+    cursor: "not-allowed",
+  },
+  scanProgressBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  scanProgressLabel: {
+    margin: 0,
+    fontSize: 15,
+    fontWeight: 600,
+  },
+  scanProgressTrack: {
+    height: 8,
+    borderRadius: 4,
+    background: "var(--border)",
+    overflow: "hidden",
+  },
+  scanProgressBar: {
+    height: "100%",
+    background: "var(--accent)",
+    transition: "width 0.2s ease",
+  },
+  scanItemList: {
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  scanItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    padding: "8px 10px",
+  },
+  scanItemInput: {
+    flex: 1,
+    minWidth: 0,
+    border: "none",
+    background: "transparent",
+    fontSize: 15,
+    fontFamily: "inherit",
+    color: "var(--text-primary)",
+    padding: "4px 2px",
+  },
+  scanRaw: {
+    whiteSpace: "pre-wrap",
+    fontSize: 12,
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    borderRadius: 10,
+    padding: 10,
+    margin: "8px 0 0",
+  },
   addButton: {
     display: "flex",
     alignItems: "center",
@@ -1401,25 +2422,30 @@ const styles = {
   },
   fieldGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
+    // minmax(0, 1fr): Spalten dürfen schmaler als ihr Inhalt werden, sonst ragt
+    // das dritte Datumsfeld auf schmalen Handys über den Bildschirmrand
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     gap: 8,
   },
   fieldLabel: {
     display: "flex",
     flexDirection: "column",
     gap: 4,
+    minWidth: 0,
     fontSize: 11,
     color: "var(--text-secondary)",
   },
   fieldInput: {
     border: "1px solid var(--border)",
     borderRadius: 8,
-    padding: "6px 6px",
-    fontSize: 12.5,
+    padding: "6px 5px",
+    fontSize: 11.5,
     fontFamily: "inherit",
     color: "var(--text-primary)",
     background: "#FBF8F0",
     width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
   shoppingButton: {
     display: "flex",
@@ -1501,7 +2527,9 @@ const styles = {
     height: 30,
     fontSize: 16,
     lineHeight: 1,
-    border: "1px solid var(--border)",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: "var(--border)",
     borderRadius: 8,
     background: "#fff",
     cursor: "pointer",
@@ -1653,7 +2681,9 @@ const styles = {
     width: 20,
     height: 20,
     borderRadius: 6,
-    border: "1.5px solid var(--border)",
+    borderWidth: "1.5px",
+    borderStyle: "solid",
+    borderColor: "var(--border)",
     background: "transparent",
     display: "flex",
     alignItems: "center",
